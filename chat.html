@@ -1,0 +1,173 @@
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Chat</title>
+<script src="nacl.min.js"></script>
+<script src="nacl-util.min.js"></script>
+<script src="words.js"></script>
+<script>
+  const defaultSender = function (msg) { alert('Communication channel not available.') }
+  let sender = defaultSender
+  let signer = function (text) { }
+  let verifier = function (obj) { }
+  let hasher = function () { }
+
+  function setVal (id, val) { document.getElementById(id).value = val }
+  function getVal (id) { return document.getElementById(id).value.trim() }
+  function setText (id, text) { document.getElementById(id).textContent = text }
+
+  function toggle(id) {
+    const element = document.getElementById(id)
+    element.type = element.type === 'password' ? 'text' : 'password'
+  }
+
+  function copyText (id) {
+    document.getElementById(id).select()
+    document.execCommand('copy')
+  }
+
+  function append (obj) {
+    const text = obj.text.replace(/(?:\r\n|\r|\n)/g, '<br>')
+    let now = new Date()
+    function pad (n) { return n <= 9 ? '0' + n : n }
+    now = now.getFullYear() + '-'
+      + pad(now.getMonth() + 1) + '-'
+      + pad(now.getDate()) + ' '
+      + pad(now.getHours()) + ':'
+      + pad(now.getMinutes()) + ':'
+      + pad(now.getSeconds())
+    document.getElementById('history').innerHTML += '<p><small>' + now + '<br>' + obj.pk + '</small></p><p>' + text + '</p>'
+  }
+
+  function identity () {
+    let kp = null
+    let text = ''
+    nacl.randomBytes(12).forEach((index) => { text += words[index % words.length] + ' ' })
+    setVal('pass', text.trim())
+    hasher = function () {
+      const pass = getVal('pass').trim()
+      const arr = []
+      for (let i = 0; i < pass.length; i++) arr.push(pass.charCodeAt(i))
+      kp = nacl.sign.keyPair.fromSeed(nacl.hash(new Uint8Array(arr)).slice(0, 32))
+      setVal('pk', nacl.util.encodeBase64(kp.publicKey))
+    }
+    signer = function (text) {
+      return {
+        text: text,
+        pk: nacl.util.encodeBase64(kp.publicKey),
+        sig: nacl.util.encodeBase64(nacl.sign.detached(nacl.util.decodeUTF8(text), kp.secretKey))
+      }
+    }
+    verifier = function (obj) {
+      const verified = nacl.sign.detached.verify(nacl.util.decodeUTF8(obj.text), nacl.util.decodeBase64(obj.sig), nacl.util.decodeBase64(obj.pk))
+      return { verified: verified, pk: obj.pk, text: obj.text }
+    }
+    hasher()
+  }
+
+  function connect () {
+    if (!('WebSocket' in window)) {
+      alert('WebSocket not supported by this browser.')
+      return
+    }
+    const sk = nacl.randomBytes(32)
+    let ss = null
+    let ready = false
+    const ws = new WebSocket('ws://' + getVal('ip') + ':' + getVal('port'))
+    ws.onopen = function () { send(nacl.box.keyPair.fromSecretKey(sk).publicKey) }
+    ws.onclose = function (e) {
+      sender = defaultSender
+      let msg = 'Connection closed. Refresh page to start over.'
+      if (e.reason) msg = e.reason + msg
+      alert(msg)
+    }
+    ws.onmessage = function (e) {
+      try {
+        const msg = nacl.util.decodeBase64(e.data)
+        if(!ss) {
+          ss = nacl.box.before(msg, sk)
+          sender = send
+          ready = true
+          setText('status', 'Contact ready.')
+        }
+        else {
+          const obj = verifier(JSON.parse(decrypt(msg)))
+          if (obj.verified) append(obj)
+        }
+      } catch (err) { close() }
+    }
+    function send (msg) {
+      try {
+        if (ss) {
+          const obj = signer(msg)
+          append(obj)
+          msg = encrypt(JSON.stringify(obj))
+        }
+        ws.send(nacl.util.encodeBase64(msg))
+      } catch (err) { close() }
+    }
+    function close () { ws.close(3000, 'Communication error.') }
+    function encrypt (msg) {
+      const nonce = nacl.randomBytes(24)
+      const encrypted = nacl.box.after(nacl.util.decodeUTF8(msg), nonce, ss)
+      const noncencrypted = new Uint8Array(24 + encrypted.length)
+      noncencrypted.set(nonce)
+      noncencrypted.set(encrypted, 24)
+      return noncencrypted
+    }
+    function decrypt (noncencrypted) {
+      const nonce = noncencrypted.subarray(0, 24)
+      const encrypted = noncencrypted.subarray(24)
+      const decrypted = nacl.box.open.after(encrypted, nonce, ss)
+      return nacl.util.encodeUTF8(decrypted)
+    }
+    waiting()
+    function waiting () {
+      if (ready) return
+      if (ws.readyState === 0) {
+        setText('status', 'Connecting...')
+        setTimeout(waiting, 200)
+      }
+      else if (ws.readyState === 1) {
+        setText('status', 'Connected. Waiting for contact.')
+      }
+      else setText('status', 'Failed.')
+    }
+  }
+</script>
+</head>
+<body onload="identity()">
+  <table><p>
+  <tr><td>Secret passphrase:</td></tr>
+  <tr><td><input type="password" id="pass" size="90" oninput="hasher()"></textarea></td></tr>
+  <tr><td><button onclick="toggle('pass')">Show/hide passphrase</button>&nbsp;
+  <button onclick="copyText('pass')">Copy passphrase when shown</button></td></tr>
+  <tr><td>Public key:</td></tr>
+  <tr><td><input type="text" id="pk" size="60" readonly></td></tr>
+  <tr><td><button onclick="copyText('pk')">Copy public key</button></td></tr>
+  </table></p>
+
+  <p><table>
+  <tr><td><table>
+  <tr><td>Server IP or domain:</td><td>Server port:</td></tr>
+  <tr><td><input type="text" id="ip" size="30" value="localhost"></td>
+  <td><input type="text" id="port" size="5" maxlength="5" value="12345"></td></tr>
+  </table></td></tr>
+  <tr><td><table>
+  <tr><td><button onclick="connect()">Connect to server</button></td>
+  <td><small><span id="status"></span></small></td></tr>
+  </table></td></tr>
+  </table></p>
+
+  <p><table>
+  <tr>Message to send:<br><textarea id="message" rows="5" cols="80"></textarea></tr>
+  <tr>
+    <td><button onclick="sender(getVal('message'))">Send</button></td>
+    <td><button onclick="copyText('message')">Copy message</button></td>
+  </tr>
+  </table></p>
+  
+  <div id="history"></div>
+</body>
+</html>
