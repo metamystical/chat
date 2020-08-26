@@ -28,16 +28,17 @@
   }
 
   function append (obj) {
-    const text = obj.text.replace(/(?:\r\n|\r|\n)/g, '<br>')
     let now = new Date()
     function pad (n) { return n <= 9 ? '0' + n : n }
-    now = now.getFullYear() + '-'
-      + pad(now.getMonth() + 1) + '-'
-      + pad(now.getDate()) + ' '
+    now = now.getFullYear() + '\u2011'
+      + pad(now.getMonth() + 1) + '\u2011'
+      + pad(now.getDate()) + '\u00a0'
       + pad(now.getHours()) + ':'
       + pad(now.getMinutes()) + ':'
       + pad(now.getSeconds())
-    document.getElementById('history').innerHTML += '<p><small>' + now + '<br>' + obj.pk + '</small></p><p>' + text + '</p>'
+    const history = document.getElementById('history')
+    history.value += (history.value === '' ? '' : '\n\n') + now + '\u00a0' + obj.pk + '\n\n' + obj.text
+    history.scrollTop = history.scrollHeight
   }
 
   function identity () {
@@ -161,13 +162,17 @@
   </table></p>
 
   <p><table>
-  <tr>Message to send:<br><textarea id="message" rows="5" cols="80"></textarea></tr>
-  <tr>
-    <td><button onclick="sender(getVal('message'))">Send</button></td>
-    <td><button onclick="copyText('message')">Copy message</button></td>
-  </tr>
+  <tr><td>Message to send:</td></tr>
+  <tr><td><textarea id="message" rows="5" cols="80"></textarea></td></tr>
+  <tr><td><table>
+  <tr><td><button onclick="sender(getVal('message'))">Send</button></td>
+  <td><button onclick="copyText('message')">Copy message</button></td></tr>
+  </table></td></tr>
   </table></p>
-  
-  <div id="history"></div>
+
+  <p><table>
+  <tr><td>Chat history:</td></tr>
+  <tr><td><textarea id="history" rows="10" cols="80" readonly></textarea></td></tr>
+  </table></p>
 </body>
 </html>

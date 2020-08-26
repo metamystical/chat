@@ -28,8 +28,8 @@ When chat.html opens, it automatically computes a public key from a random passp
 
 Click on the *Connect to server* button after changing the default domain/IP and port if necessary. A status message next to the button will indicate whether connection succeeded. If it did, the status will indicate that the local client is waiting for the remote client to also initiate connection. When both clients connect to each other through the server, the status becomes *Contact ready*.
 
-Each of the clients can then begin sending messages. All messages are displayed at the bottom of the chat window, preceded by a timestamp and the sender's public key.
+Each of the clients can then begin sending messages. All messages are displayed in the read-only *Chat history* text area, preceded by a timestamp and the sender's public key.
 
 Each message is digitally signed using a secret key derived from the passphrase, and the signature and public key are sent along with the message for verification by the recipient. The recipient will know that the message is authentic if the public key has previously been given by the sender through a secure channel. Unverified messages are not displayed.
 
-Each message is also encrypted, using as an encryption key a temporary shared secret generated using a temporary public key exchange.
+Each message is also encrypted, using as an encryption key a temporary shared secret generated using a one-time public key exchange.
