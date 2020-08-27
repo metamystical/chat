@@ -7,7 +7,7 @@
 <script src="nacl-util.min.js"></script>
 <script src="words.js"></script>
 <script>
-  const defaultSender = function (msg) { alert('Communication channel not available.') }
+  const defaultSender = function (msg) { setText('error', 'Communication channel not available.') }
   let sender = defaultSender
   let signer = function (text) { }
   let verifier = function (obj) { }
@@ -79,9 +79,9 @@
     ws.onopen = function () { send(nacl.box.keyPair.fromSecretKey(sk).publicKey) }
     ws.onclose = function (e) {
       sender = defaultSender
-      let msg = 'Connection closed. Refresh page to start over.'
+      let msg = 'Connection closed.'
       if (e.reason) msg = e.reason + msg
-      alert(msg)
+      setText('status', msg)
     }
     ws.onmessage = function (e) {
       try {
@@ -91,6 +91,7 @@
           sender = send
           ready = true
           setText('status', 'Contact ready.')
+          setText('error', '')
         }
         else {
           const obj = verifier(JSON.parse(decrypt(msg)))
@@ -166,7 +167,8 @@
   <tr><td><textarea id="message" rows="5" cols="80"></textarea></td></tr>
   <tr><td><table>
   <tr><td><button onclick="sender(getVal('message'))">Send</button></td>
-  <td><button onclick="copyText('message')">Copy message</button></td></tr>
+  <td><button onclick="copyText('message')">Copy message</button></td>
+  <td><small><span id="error"></span></small></td></tr>
   </table></td></tr>
   </table></p>
 
