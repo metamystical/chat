@@ -72,11 +72,11 @@
       alert('WebSocket not supported by this browser.')
       return
     }
-    const sk = nacl.randomBytes(32)
+    const kp = nacl.box.keyPair()
     let ss = null
     let ready = false
     const ws = new WebSocket('ws://' + getVal('ip') + ':' + getVal('port'))
-    ws.onopen = function () { send(nacl.box.keyPair.fromSecretKey(sk).publicKey) }
+    ws.onopen = function () { send(kp.publicKey) }
     ws.onclose = function (e) {
       sender = defaultSender
       let msg = 'Connection closed.'
@@ -87,7 +87,7 @@
       try {
         const msg = nacl.util.decodeBase64(e.data)
         if(!ss) {
-          ss = nacl.box.before(msg, sk)
+          ss = nacl.box.before(msg, kp.secretKey)
           sender = send
           ready = true
           setText('status', 'Contact ready.')
