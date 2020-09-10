@@ -44,7 +44,11 @@
   function identity () {
     let kp = null
     let text = ''
-    nacl.randomBytes(12).forEach((index) => { text += words[index % words.length] + ' ' })
+    const randBytes = nacl.randomBytes(24)
+    for (let i = 0; i < 12; i++) {
+      const index = randBytes[2 * i] * 256 + randBytes[2 * i + 1]
+      text += words[index % words.length] + ' '
+    }
     setVal('pass', text.trim())
     hasher = function () {
       const pass = getVal('pass').trim()
